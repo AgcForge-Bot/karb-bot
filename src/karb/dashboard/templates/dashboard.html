@@ -1,0 +1,2445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Karb Dashboard</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --text-primary: #c9d1d9;
+            --text-secondary: #8b949e;
+            --accent-green: #3fb950;
+            --accent-red: #f85149;
+            --accent-blue: #58a6ff;
+            --accent-yellow: #d29922;
+            --accent-orange: #f59e0b;
+            --accent-purple: #a371f7;
+            --border: #30363d;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo { font-size: 28px; }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-badge.live {
+            background: rgba(63, 185, 80, 0.15);
+            color: var(--accent-green);
+        }
+
+        .status-badge.offline {
+            background: rgba(248, 81, 73, 0.15);
+            color: var(--accent-red);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .card-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .card-icon { font-size: 20px; }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .stat-row:last-child { border-bottom: none; }
+
+        .positive { color: var(--accent-green); }
+        .negative { color: var(--accent-red); }
+        .neutral { color: var(--accent-blue); }
+
+        /* Terminal/Activity Feed Styles */
+        .terminal {
+            background: #0a0a0a;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+
+        .terminal-header {
+            background: var(--bg-tertiary);
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .terminal-dots {
+            display: flex;
+            gap: 6px;
+        }
+
+        .terminal-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .terminal-dot.red { background: #ff5f56; }
+        .terminal-dot.yellow { background: #ffbd2e; }
+        .terminal-dot.green { background: #27c93f; }
+
+        .terminal-title {
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .terminal-body {
+            padding: 16px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .log-line {
+            padding: 2px 0;
+            display: flex;
+            gap: 12px;
+        }
+
+        .log-time {
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+
+        .log-type {
+            flex-shrink: 0;
+            width: 60px;
+            font-weight: 500;
+        }
+
+        .log-type.info { color: var(--accent-blue); }
+        .log-type.alert { color: var(--accent-green); }
+        .log-type.trade { color: var(--accent-purple); }
+        .log-type.error { color: var(--accent-red); }
+        .log-type.price { color: var(--accent-yellow); }
+
+        .log-message {
+            color: var(--text-primary);
+        }
+
+        .table-container { overflow-x: auto; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 12px 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            color: var(--text-secondary);
+            font-weight: 500;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+        }
+
+        tr:hover { background: var(--bg-tertiary); }
+
+        .alert-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            border-left: 3px solid var(--accent-green);
+        }
+
+        .alert-market {
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .alert-details {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .alert-profit {
+            color: var(--accent-green);
+            font-weight: 600;
+        }
+
+        .refresh-indicator {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .two-col { grid-template-columns: 1fr; }
+        }
+
+        /* Cross-platform matches modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            overflow-y: auto;
+            padding: 40px 20px;
+        }
+
+        .modal-overlay.active { display: block; }
+
+        .modal {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-tertiary);
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 24px;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+
+        .modal-close:hover { color: var(--text-primary); }
+
+        .modal-body {
+            padding: 20px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .modal-stats {
+            display: flex;
+            gap: 24px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .modal-stat {
+            padding: 12px 16px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+        }
+
+        .modal-stat-value {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .modal-stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .match-item {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr auto;
+            gap: 16px;
+            align-items: center;
+            padding: 16px;
+            margin-bottom: 12px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .match-platform {
+            min-width: 0;
+        }
+
+        .match-platform-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .match-question {
+            font-size: 13px;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+
+        .match-price {
+            text-align: center;
+            padding: 8px 12px;
+            background: var(--bg-primary);
+            border-radius: 6px;
+            min-width: 80px;
+        }
+
+        .match-price-value {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .match-arrow {
+            font-size: 20px;
+            color: var(--text-secondary);
+        }
+
+        .match-meta {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+        .match-confidence {
+            font-size: 11px;
+            padding: 4px 8px;
+            background: var(--bg-primary);
+            border-radius: 4px;
+        }
+
+        .match-confidence.high { color: var(--accent-green); }
+        .match-confidence.medium { color: var(--accent-yellow); }
+        .match-confidence.low { color: var(--accent-red); }
+
+        .match-spread {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .match-spread.opportunity { color: var(--accent-green); }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn:hover { background: var(--border); }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+
+        .btn-primary:hover { background: #4a90d9; }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid var(--text-secondary);
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+            .stat-value { font-size: 24px; }
+            .terminal-body { height: 200px; }
+        }
+
+        /* Charts Section */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 1000px) {
+            .charts-grid { grid-template-columns: 1fr; }
+        }
+
+        .chart-container {
+            position: relative;
+            height: 250px;
+            width: 100%;
+        }
+
+        .chart-empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 200px;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>
+                <span class="logo">📊</span>
+                Karb Dashboard
+            </h1>
+            <div id="connection-status">
+                <span class="status-badge offline">
+                    <span class="status-dot"></span>
+                    Loading...
+                </span>
+            </div>
+        </header>
+
+        <!-- Stats Grid -->
+        <div class="grid">
+            <!-- Balance Card -->
+            <div class="card" id="balance-card">
+                <div class="card-header">
+                    <span class="card-title">Balance</span>
+                    <span class="card-icon">💰</span>
+                </div>
+                <div id="balance-content">
+                    <div class="stat-value">Loading...</div>
+                </div>
+            </div>
+
+            <!-- Scanner Stats Card -->
+            <div class="card" id="scanner-stats">
+                <div class="card-header">
+                    <span class="card-title">Scanner</span>
+                    <span class="card-icon">📡</span>
+                </div>
+                <div id="scanner-content">
+                    <div class="stat-row">
+                        <span>Markets Monitored</span>
+                        <span id="stat-markets">--</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>Price Updates (Today)</span>
+                        <span id="stat-updates">--</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>Arbitrage Alerts (Today)</span>
+                        <span id="stat-alerts" class="positive">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- P&L Card -->
+            <div class="card" id="pnl-card">
+                <div class="card-header">
+                    <span class="card-title">Profit & Loss</span>
+                    <span class="card-icon">📈</span>
+                </div>
+                <div id="pnl-content">
+                    <div class="stat-value">Loading...</div>
+                </div>
+            </div>
+
+            <!-- Config Card -->
+            <div class="card" id="config-card">
+                <div class="card-header">
+                    <span class="card-title">Configuration</span>
+                    <span class="card-icon">⚙️</span>
+                </div>
+                <div id="config-content">
+                    <div class="stat-row">
+                        <span>Mode</span>
+                        <span id="config-mode">--</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>Min Profit</span>
+                        <span id="config-profit">--</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>Max Position</span>
+                        <span id="config-position">--</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Charts Section -->
+        <div class="charts-grid">
+            <!-- Price Updates Chart (minute-level) -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">📊 Price Updates (Last 60 min)</span>
+                    <span class="refresh-indicator">Live</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="price-updates-chart"></canvas>
+                </div>
+                <div id="price-updates-chart-empty" class="chart-empty" style="display: none;">
+                    No data yet. Chart will populate when bot starts receiving updates.
+                </div>
+            </div>
+
+            <!-- Markets Chart -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">🏪 Markets Monitored (Last 24h)</span>
+                    <span class="refresh-indicator">Live</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="markets-chart"></canvas>
+                </div>
+                <div id="markets-chart-empty" class="chart-empty" style="display: none;">
+                    No data yet. Chart will populate when bot starts monitoring markets.
+                </div>
+            </div>
+
+            <!-- Arbitrage Alerts Chart -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">🎯 Arbitrage Alerts (Last 7d)</span>
+                    <span class="refresh-indicator">Live</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="alerts-chart"></canvas>
+                </div>
+                <div id="alerts-chart-empty" class="chart-empty" style="display: none;">
+                    No arbitrage alerts yet.
+                </div>
+            </div>
+
+            <!-- Near-Miss Chart -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">⚠️ Near-Miss (Illiquid) (Last 7d)</span>
+                    <span class="refresh-indicator">Live</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="near-miss-chart"></canvas>
+                </div>
+                <div id="near-miss-chart-empty" class="chart-empty" style="display: none;">
+                    No near-miss opportunities yet.
+                </div>
+            </div>
+        </div>
+
+        <!-- Daily Executions Chart -->
+        <div class="card" style="margin-bottom: 24px;">
+            <div class="card-header">
+                <span class="card-title">📈 Daily Executions (Last 30d)</span>
+                <span class="refresh-indicator">Live</span>
+            </div>
+            <div class="chart-container">
+                <canvas id="daily-chart"></canvas>
+            </div>
+            <div id="daily-chart-empty" class="chart-empty" style="display: none;">
+                No execution data yet. Charts will populate when trades are executed.
+            </div>
+        </div>
+
+        <!-- Daily Balance Chart -->
+        <div class="card" style="margin-bottom: 24px;">
+            <div class="card-header">
+                <span class="card-title">💰 Portfolio Value (Last 30d) <span style="font-size: 11px; color: var(--text-secondary);">*historical values estimated</span></span>
+                <span class="refresh-indicator">Live</span>
+            </div>
+            <div class="chart-container">
+                <canvas id="balance-chart"></canvas>
+            </div>
+            <div id="balance-chart-empty" class="chart-empty" style="display: none;">
+                No balance data yet. Chart will populate when portfolio snapshots are recorded.
+            </div>
+        </div>
+
+        <!-- Live Activity Feed -->
+        <div class="terminal">
+            <div class="terminal-header">
+                <div class="terminal-dots">
+                    <span class="terminal-dot red"></span>
+                    <span class="terminal-dot yellow"></span>
+                    <span class="terminal-dot green"></span>
+                </div>
+                <span class="terminal-title">Live Activity Feed</span>
+            </div>
+            <div class="terminal-body" id="activity-feed">
+                <div class="log-line">
+                    <span class="log-time">--:--:--</span>
+                    <span class="log-type info">INFO</span>
+                    <span class="log-message">Connecting to dashboard...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Positions Section -->
+        <div style="margin-bottom: 24px;">
+            <!-- Open Positions -->
+            <div class="card" style="margin-bottom: 12px;">
+                <div class="card-header">
+                    <span class="card-title">Open Positions</span>
+                    <span class="refresh-indicator">Live</span>
+                </div>
+                <div class="table-container" id="open-positions-container">
+                    <div class="empty-state">Loading...</div>
+                </div>
+            </div>
+
+            <!-- Closed Positions (Pending Redemption) -->
+            <div class="card" style="margin-bottom: 12px;">
+                <div class="card-header">
+                    <span class="card-title">Pending Redemption</span>
+                    <span class="refresh-indicator">Live</span>
+                </div>
+                <div class="table-container" id="closed-positions-container">
+                    <div class="empty-state">Loading...</div>
+                </div>
+            </div>
+
+            <!-- Redeemed Positions (Historical) -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Closed Positions</span>
+                    <span id="redeemed-history-count" class="refresh-indicator">-</span>
+                </div>
+                <div class="table-container" id="redeemed-history-container">
+                    <div class="empty-state">Loading...</div>
+                </div>
+                <div id="redeemed-history-pagination" style="margin-top: 12px; text-align: center; display: none;">
+                    <button class="btn" id="redeemed-history-load-more">Load More</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Orders Section -->
+        <div class="card" style="margin-bottom: 24px;">
+            <div class="card-header">
+                <span class="card-title">Order Log</span>
+                <span class="refresh-indicator">Live</span>
+            </div>
+            <div id="orders-container">
+                <div class="empty-state">No orders yet</div>
+            </div>
+        </div>
+
+        <!-- Alerts and Trades -->
+        <div class="two-col">
+            <!-- Alerts Section -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Arbitrage Alerts</span>
+                    <span id="alerts-count" class="refresh-indicator">Live</span>
+                </div>
+                <div id="alerts-container">
+                    <div class="empty-state">Monitoring for opportunities...</div>
+                </div>
+                <div id="alerts-pagination" style="margin-top: 12px; text-align: center; display: none;">
+                    <button class="btn" id="alerts-load-more">Load More</button>
+                </div>
+            </div>
+
+            <!-- Trades Section -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Trade History</span>
+                    <span id="trades-count" class="refresh-indicator">Live</span>
+                </div>
+                <div class="table-container" id="trades-container">
+                    <div class="empty-state">No trades yet</div>
+                </div>
+                <div id="trades-pagination" style="margin-top: 12px; text-align: center; display: none;">
+                    <button class="btn" id="trades-load-more">Load More</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Near-Miss Alerts Section -->
+        <div class="card" style="margin-top: 16px;">
+            <div class="card-header">
+                <span class="card-title">🚫 Near-Miss Opportunities (Illiquid)</span>
+                <span id="near-miss-count" class="refresh-indicator">Live</span>
+            </div>
+            <div id="near-miss-container">
+                <div class="empty-state">No illiquid opportunities detected yet</div>
+            </div>
+            <div id="near-miss-pagination" style="margin-top: 12px; text-align: center; display: none;">
+                <button class="btn" id="near-miss-load-more">Load More</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const activityFeed = document.getElementById('activity-feed');
+        let lastPriceUpdates = 0;
+
+        // Track which timing rows are expanded (persists across re-renders)
+        const expandedTimingRows = new Set();
+
+        // Helper function to format timestamps properly
+        function formatDateTime(timestamp) {
+            if (!timestamp) return '-';
+            try {
+                // Handle various timestamp formats
+                let dateStr = timestamp;
+                // If it has +00:00 timezone, it's already valid ISO
+                // If it doesn't have timezone info, append Z
+                if (!dateStr.includes('+') && !dateStr.includes('Z')) {
+                    dateStr += 'Z';
+                }
+                const date = new Date(dateStr);
+                if (isNaN(date.getTime())) return '-';
+
+                return date.toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true,
+                    timeZone: 'America/Los_Angeles'
+                });
+            } catch (e) {
+                return '-';
+            }
+        }
+
+        function addLogLine(type, message) {
+            const now = new Date();
+            const time = now.toTimeString().slice(0, 8);
+            const line = document.createElement('div');
+            line.className = 'log-line';
+            line.innerHTML = `
+                <span class="log-time">${time}</span>
+                <span class="log-type ${type}">${type.toUpperCase()}</span>
+                <span class="log-message">${message}</span>
+            `;
+            activityFeed.appendChild(line);
+
+            // Keep only last 100 lines
+            while (activityFeed.children.length > 100) {
+                activityFeed.removeChild(activityFeed.firstChild);
+            }
+
+            // Auto-scroll to bottom
+            activityFeed.scrollTop = activityFeed.scrollHeight;
+        }
+
+        async function fetchStatus() {
+            try {
+                const resp = await fetch('/api/status');
+                const data = await resp.json();
+
+                // Update connection badge
+                const isConnected = data.scanner.ws_connected;
+                document.getElementById('connection-status').innerHTML = `
+                    <span class="status-badge ${isConnected ? 'live' : 'offline'}">
+                        <span class="status-dot"></span>
+                        ${isConnected ? 'Connected' : 'Disconnected'}
+                    </span>
+                `;
+
+                // Update scanner stats (show daily values, fallback to cumulative)
+                document.getElementById('stat-markets').textContent = data.scanner.markets;
+                const priceUpdatesToday = data.scanner.price_updates_today ?? data.scanner.price_updates;
+                const alertsToday = data.scanner.arbitrage_alerts_today ?? data.scanner.arbitrage_alerts;
+                document.getElementById('stat-updates').textContent = priceUpdatesToday.toLocaleString();
+                document.getElementById('stat-alerts').textContent = alertsToday;
+
+                // Update config
+                document.getElementById('config-mode').innerHTML = data.bot.dry_run
+                    ? '<span class="neutral">DRY RUN</span>'
+                    : '<span class="positive">LIVE</span>';
+                document.getElementById('config-profit').textContent = data.bot.min_profit;
+                document.getElementById('config-position').textContent = data.bot.max_position;
+
+                // Log price updates delta (use daily value for consistency)
+                const updatesDelta = priceUpdatesToday - lastPriceUpdates;
+                if (lastPriceUpdates > 0 && updatesDelta > 0) {
+                    addLogLine('price', `Received ${updatesDelta} price updates (${data.scanner.markets} markets)`);
+                }
+                lastPriceUpdates = priceUpdatesToday;
+
+            } catch (e) {
+                console.error('Status fetch error:', e);
+                addLogLine('error', 'Failed to fetch status');
+            }
+        }
+
+        async function fetchBalance() {
+            try {
+                // Fetch both balance and positions
+                const [balanceResp, positionsResp] = await Promise.all([
+                    fetch('/api/balance'),
+                    fetch('/api/positions')
+                ]);
+                const data = await balanceResp.json();
+                const positionsData = await positionsResp.json();
+
+                if (data.error) {
+                    document.getElementById('balance-content').innerHTML = `
+                        <div class="stat-value negative">Error</div>
+                        <div class="stat-label">${data.error}</div>
+                    `;
+                } else {
+                    // Calculate open positions expected value
+                    const openPositions = positionsData.open || [];
+                    const openPositionsValue = openPositions.reduce((sum, p) => {
+                        return sum + (p.current_value || (p.size * (p.current_price || 0)));
+                    }, 0);
+                    const positionsUnrealizedPnl = openPositions.reduce((sum, p) => sum + (p.pnl || 0), 0);
+
+                    // Calculate pending redemption value (WON positions = $1/share, LOST = $0)
+                    const closedPositions = positionsData.closed || [];
+                    const pendingRedemption = closedPositions.reduce((sum, p) => {
+                        // WON positions are worth $1 per share
+                        if (p.status === 'WON' && p.redeemable) {
+                            return sum + (p.size || 0);
+                        }
+                        return sum;
+                    }, 0);
+                    const pendingCount = closedPositions.filter(p => p.status === 'WON' && p.redeemable).length;
+
+                    // Total = USDC + Open Positions + Pending Redemption
+                    const totalValue = data.polymarket_usdc + openPositionsValue + pendingRedemption;
+                    const pnlColor = positionsUnrealizedPnl >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+                    const pnlSign = positionsUnrealizedPnl >= 0 ? '+' : '';
+
+                    document.getElementById('balance-content').innerHTML = `
+                        <div class="stat-value">$${totalValue.toFixed(2)}</div>
+                        <div class="stat-row">
+                            <span>Polymarket (USDC)</span>
+                            <span>$${data.polymarket_usdc.toFixed(2)}</span>
+                        </div>
+                        ${openPositions.length > 0 ? `
+                        <div class="stat-row">
+                            <span>Open Positions (${openPositions.length})</span>
+                            <span>$${openPositionsValue.toFixed(2)}</span>
+                        </div>
+                        ` : ''}
+                        ${pendingRedemption > 0 ? `
+                        <div class="stat-row">
+                            <span>Pending Redemption (${pendingCount})</span>
+                            <span style="color: var(--accent-green);">$${pendingRedemption.toFixed(2)}</span>
+                        </div>
+                        ` : ''}
+                        ${positionsUnrealizedPnl !== 0 ? `
+                        <div class="stat-row">
+                            <span>Unrealized P&L</span>
+                            <span style="color: ${pnlColor};">${pnlSign}$${positionsUnrealizedPnl.toFixed(2)}</span>
+                        </div>
+                        ` : ''}
+                    `;
+                }
+            } catch (e) {
+                console.error('Balance fetch error:', e);
+            }
+        }
+
+        async function fetchPnL() {
+            try {
+                const resp = await fetch('/api/pnl');
+                const data = await resp.json();
+                const daily = data.daily;
+                const allTime = data.all_time;
+                const realized = data.realized || {};
+
+                const realizedPnl = realized.total_pnl || 0;
+                const pnlColor = realizedPnl >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+                const pnlSign = realizedPnl >= 0 ? '+' : '';
+
+                document.getElementById('pnl-content').innerHTML = `
+                    <div class="stat-value" style="color: ${pnlColor};">${pnlSign}$${realizedPnl.toFixed(2)}</div>
+                    <div class="stat-label" style="margin-bottom: 12px;">Realized P&L</div>
+                    <div class="stat-row">
+                        <span>Winning Positions</span>
+                        <span class="positive">${realized.winning_positions || 0}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>Losing Positions</span>
+                        <span class="negative">${realized.losing_positions || 0}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>All-Time Trades</span>
+                        <span>${allTime.total_trades || 0}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>All-Time Volume</span>
+                        <span>$${(allTime.total_volume || 0).toFixed(2)}</span>
+                    </div>
+                `;
+            } catch (e) {
+                console.error('PnL fetch error:', e);
+            }
+        }
+
+        let lastAlertCount = 0;
+        let alertsOffset = 0;
+        let alertsTotal = 0;
+        let allAlerts = [];
+
+        async function fetchAlerts(loadMore = false) {
+            try {
+                if (!loadMore) {
+                    alertsOffset = 0;
+                    allAlerts = [];
+                }
+
+                const resp = await fetch(`/api/alerts?limit=10&offset=${alertsOffset}`);
+                const data = await resp.json();
+                alertsTotal = data.total || 0;
+
+                // Update count display
+                document.getElementById('alerts-count').textContent = `${alertsTotal} total`;
+
+                // Log new alerts (only on initial load)
+                if (!loadMore && data.count > lastAlertCount && lastAlertCount > 0) {
+                    const newAlerts = data.alerts.slice(0, data.count - lastAlertCount);
+                    newAlerts.forEach(alert => {
+                        addLogLine('alert', `ARBITRAGE: ${alert.market.slice(0, 40)}... +${(alert.profit * 100).toFixed(2)}%`);
+                    });
+                }
+                lastAlertCount = data.count;
+
+                // Append or replace alerts
+                if (loadMore) {
+                    allAlerts = [...allAlerts, ...data.alerts];
+                } else {
+                    allAlerts = data.alerts;
+                }
+                alertsOffset += data.count;
+
+                // Show/hide load more button
+                const pagination = document.getElementById('alerts-pagination');
+                if (data.has_more) {
+                    pagination.style.display = 'block';
+                } else {
+                    pagination.style.display = 'none';
+                }
+
+                if (allAlerts.length === 0) {
+                    document.getElementById('alerts-container').innerHTML = `
+                        <div class="empty-state">Monitoring for opportunities...</div>
+                    `;
+                } else {
+                    document.getElementById('alerts-container').innerHTML = allAlerts.map(alert => {
+                        const platform = (alert.platform || 'polymarket').toUpperCase();
+
+                        // Format resolution date in PST
+                        let resolveStr = '?';
+                        if (alert.resolution_date) {
+                            const date = new Date(alert.resolution_date);
+                            resolveStr = date.toLocaleDateString('en-US', {
+                                weekday: 'long',
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                                timeZone: 'America/Los_Angeles'
+                            }) + ' @ ' + date.toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                hour12: true,
+                                timeZone: 'America/Los_Angeles'
+                            }) + ' PST';
+                        } else if (alert.days_until_resolution !== null && alert.days_until_resolution !== undefined) {
+                            resolveStr = `${alert.days_until_resolution} days`;
+                        }
+
+                        // Format alert timestamp in PST (assume UTC if no timezone)
+                        let alertTime = '';
+                        if (alert.timestamp) {
+                            const tsStr = alert.timestamp.endsWith('Z') || alert.timestamp.includes('+') ? alert.timestamp : alert.timestamp + 'Z';
+                            const ts = new Date(tsStr);
+                            alertTime = ts.toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                hour12: true,
+                                timeZone: 'America/Los_Angeles'
+                            }) + ' PST';
+                        }
+
+                        return `
+                        <div class="alert-item">
+                            <div class="alert-market">
+                                <span style="color: ${platform === 'KALSHI' ? '#ff9800' : '#4caf50'}; font-weight: bold; margin-right: 6px;">[${platform}]</span>
+                                ${alert.market || 'Unknown Market'}
+                            </div>
+                            <div class="alert-details">
+                                YES: $${(alert.yes_ask || 0).toFixed(4)} +
+                                NO: $${(alert.no_ask || 0).toFixed(4)} =
+                                $${(alert.combined || 0).toFixed(4)}
+                                <span class="alert-profit">+${((alert.profit || 0) * 100).toFixed(2)}%</span>
+                            </div>
+                            <div class="alert-details" style="margin-top: 4px;">
+                                <span style="color: #888;">Resolves: ${resolveStr}</span>
+                                <span style="margin-left: 12px; color: #666;">Spotted: ${alertTime}</span>
+                                ${alert.duration_secs !== null && alert.duration_secs !== undefined && alert.duration_secs > 0
+                                    ? `<span style="margin-left: 12px; color: var(--accent-yellow);">Lasted: ${alert.duration_secs < 1 ? Math.round(alert.duration_secs * 1000) + 'ms' : alert.duration_secs.toFixed(1) + 's'}</span>`
+                                    : `<span style="margin-left: 12px; color: #666;">Lasted: pending</span>`}
+                            </div>
+                        </div>
+                    `}).join('');
+                }
+            } catch (e) {
+                console.error('Alerts fetch error:', e);
+            }
+        }
+
+        // Near-miss (illiquid) alerts
+        let nearMissOffset = 0;
+        let nearMissTotal = 0;
+        let allNearMissAlerts = [];
+
+        async function fetchNearMissAlerts(loadMore = false) {
+            try {
+                if (!loadMore) {
+                    nearMissOffset = 0;
+                    allNearMissAlerts = [];
+                }
+
+                const resp = await fetch(`/api/near-miss-alerts?limit=10&offset=${nearMissOffset}`);
+                const data = await resp.json();
+                nearMissTotal = data.total || 0;
+
+                // Update count display
+                document.getElementById('near-miss-count').textContent = `${nearMissTotal} total`;
+
+                // Append or replace alerts
+                if (loadMore) {
+                    allNearMissAlerts = [...allNearMissAlerts, ...data.alerts];
+                } else {
+                    allNearMissAlerts = data.alerts;
+                }
+                nearMissOffset += data.count;
+
+                // Show/hide load more button
+                const pagination = document.getElementById('near-miss-pagination');
+                if (data.has_more) {
+                    pagination.style.display = 'block';
+                } else {
+                    pagination.style.display = 'none';
+                }
+
+                if (allNearMissAlerts.length === 0) {
+                    document.getElementById('near-miss-container').innerHTML = `
+                        <div class="empty-state">No illiquid opportunities detected yet</div>
+                    `;
+                } else {
+                    document.getElementById('near-miss-container').innerHTML = allNearMissAlerts.map(alert => {
+                        // Format timestamp in PST
+                        let alertTime = '';
+                        if (alert.timestamp) {
+                            const tsStr = alert.timestamp.endsWith('Z') || alert.timestamp.includes('+') ? alert.timestamp : alert.timestamp + 'Z';
+                            const ts = new Date(tsStr);
+                            alertTime = ts.toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                hour12: true,
+                                timeZone: 'America/Los_Angeles'
+                            }) + ' PST';
+                        }
+
+                        // Calculate dollar liquidity (shares × price)
+                        const yesShares = alert.yes_liquidity || 0;
+                        const noShares = alert.no_liquidity || 0;
+                        const yesDollarLiq = yesShares * (alert.yes_ask || 0);
+                        const noDollarLiq = noShares * (alert.no_ask || 0);
+                        const minDollarLiq = Math.min(yesDollarLiq, noDollarLiq);
+                        const minSharesRequired = alert.min_required || 10;
+                        // Min required in dollars uses the cheaper side (NO) price
+                        const minDollarRequired = minSharesRequired * Math.min(alert.yes_ask || 1, alert.no_ask || 1);
+                        // Determine which side is the bottleneck
+                        const yesIsBottleneck = yesDollarLiq <= noDollarLiq;
+                        const yesColor = yesIsBottleneck ? 'var(--accent-red)' : '#888';
+                        const noColor = !yesIsBottleneck ? 'var(--accent-red)' : '#888';
+                        const bottleneckSide = yesIsBottleneck ? 'YES' : 'NO';
+
+                        return `
+                        <div class="alert-item" style="border-left: 3px solid var(--accent-yellow);">
+                            <div class="alert-market">
+                                <span style="color: var(--accent-yellow); font-weight: bold; margin-right: 6px;">⚠️</span>
+                                ${alert.market || 'Unknown Market'}
+                            </div>
+                            <div class="alert-details">
+                                YES: $${(alert.yes_ask || 0).toFixed(4)} +
+                                NO: $${(alert.no_ask || 0).toFixed(4)} =
+                                $${(alert.combined || 0).toFixed(4)}
+                                <span class="alert-profit">+${((alert.profit_pct || 0) * 100).toFixed(2)}%</span>
+                            </div>
+                            <div class="alert-details" style="margin-top: 4px;">
+                                <span style="color: var(--accent-red);">Liquidity: $${minDollarLiq.toFixed(2)} (need $${minDollarRequired.toFixed(2)}) - <b>${bottleneckSide} side</b></span>
+                            </div>
+                            <div class="alert-details" style="margin-top: 2px;">
+                                <span style="color: ${yesColor}; ${yesIsBottleneck ? 'font-weight: bold;' : ''}">YES: $${yesDollarLiq.toFixed(2)} (${yesShares.toFixed(0)} sh)</span>
+                                <span style="margin: 0 8px; color: #666;">|</span>
+                                <span style="color: ${noColor}; ${!yesIsBottleneck ? 'font-weight: bold;' : ''}">NO: $${noDollarLiq.toFixed(2)} (${noShares.toFixed(0)} sh)</span>
+                                <span style="margin-left: 12px; color: #666;">Spotted: ${alertTime}</span>
+                            </div>
+                        </div>
+                    `}).join('');
+                }
+            } catch (e) {
+                console.error('Near-miss alerts fetch error:', e);
+            }
+        }
+
+        let lastTradeCount = 0;
+        let tradesOffset = 0;
+        let tradesTotal = 0;
+        let allTrades = [];
+
+        async function fetchTrades(loadMore = false) {
+            try {
+                if (!loadMore) {
+                    tradesOffset = 0;
+                    allTrades = [];
+                }
+
+                const resp = await fetch(`/api/trades?limit=10&offset=${tradesOffset}`);
+                const data = await resp.json();
+                tradesTotal = data.total || 0;
+
+                // Update count display
+                document.getElementById('trades-count').textContent = `${tradesTotal} total`;
+
+                // Log new trades (only on initial load)
+                if (!loadMore && data.count > lastTradeCount && lastTradeCount > 0) {
+                    addLogLine('trade', `New trade executed!`);
+                }
+                lastTradeCount = data.count;
+
+                // Append or replace trades
+                if (loadMore) {
+                    allTrades = [...allTrades, ...data.trades];
+                } else {
+                    allTrades = data.trades;
+                }
+                tradesOffset += data.count;
+
+                // Show/hide load more button
+                const pagination = document.getElementById('trades-pagination');
+                if (data.has_more) {
+                    pagination.style.display = 'block';
+                } else {
+                    pagination.style.display = 'none';
+                }
+
+                if (allTrades.length === 0) {
+                    document.getElementById('trades-container').innerHTML = `
+                        <div class="empty-state">No trades yet</div>
+                    `;
+                } else {
+                    document.getElementById('trades-container').innerHTML = `
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Market</th>
+                                    <th>Side</th>
+                                    <th>Outcome</th>
+                                    <th>Qty</th>
+                                    <th>Price</th>
+                                    <th>Cost</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${allTrades.map(t => `
+                                    <tr>
+                                        <td>${formatDateTime(t.timestamp)}</td>
+                                        <td>${t.market}</td>
+                                        <td>${t.side}</td>
+                                        <td><span style="color: ${t.outcome === 'yes' ? 'var(--accent-green)' : 'var(--accent-red)'}; font-weight: 600;">${(t.outcome || '').toUpperCase()}</span></td>
+                                        <td>${t.size}</td>
+                                        <td>$${t.price.toFixed(3)}</td>
+                                        <td>$${t.cost.toFixed(2)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                }
+            } catch (e) {
+                console.error('Trades fetch error:', e);
+            }
+        }
+
+        function renderPositionsTable(positions, containerId, emptyMessage) {
+            if (!positions || positions.length === 0) {
+                document.getElementById(containerId).innerHTML = `
+                    <div class="empty-state">${emptyMessage}</div>
+                `;
+            } else {
+                document.getElementById(containerId).innerHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Market</th>
+                                <th>Outcome</th>
+                                <th>Status</th>
+                                <th>Size</th>
+                                <th>Avg Price</th>
+                                <th>Current</th>
+                                <th>P&L</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${positions.map(p => {
+                                const pnlColor = p.pnl >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+                                const statusColor = p.status === 'WON' ? 'var(--accent-green)'
+                                    : p.status === 'LOST' ? 'var(--accent-red)'
+                                    : p.status === 'OPEN' ? 'var(--accent-blue)'
+                                    : 'var(--accent-yellow)';
+                                const costBasis = p.initial_value || (p.size * p.avg_price);
+                                return `
+                                <tr>
+                                    <td>${p.market || p.token_id?.substring(0, 20) || 'Unknown'}</td>
+                                    <td><span style="color: ${p.outcome === 'Yes' ? 'var(--accent-green)' : 'var(--accent-red)'}; font-weight: 600;">${p.outcome || '-'}</span></td>
+                                    <td><span style="color: ${statusColor}; font-weight: 600;">${p.status}${p.redeemable ? ' 💰' : ''}</span></td>
+                                    <td>${p.size} <span style="color: var(--text-secondary);">($${costBasis?.toFixed(2)})</span></td>
+                                    <td>$${p.avg_price?.toFixed(3) || '-'}</td>
+                                    <td>$${p.current_price?.toFixed(3) || '-'}</td>
+                                    <td style="color: ${pnlColor}; font-weight: 600;">$${p.pnl?.toFixed(2) || '0.00'}</td>
+                                </tr>
+                            `}).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+        }
+
+        async function fetchPositions() {
+            try {
+                const resp = await fetch('/api/positions');
+                const data = await resp.json();
+
+                if (data.error) {
+                    document.getElementById('open-positions-container').innerHTML = `
+                        <div class="empty-state">${data.error}</div>
+                    `;
+                    document.getElementById('closed-positions-container').innerHTML = `
+                        <div class="empty-state">${data.error}</div>
+                    `;
+                    return;
+                }
+
+                renderPositionsTable(data.open, 'open-positions-container', 'No open positions');
+                renderPositionsTable(data.closed, 'closed-positions-container', 'No closed positions');
+            } catch (e) {
+                console.error('Positions fetch error:', e);
+                document.getElementById('open-positions-container').innerHTML = `
+                    <div class="empty-state">Failed to load positions</div>
+                `;
+                document.getElementById('closed-positions-container').innerHTML = `
+                    <div class="empty-state">Failed to load positions</div>
+                `;
+            }
+        }
+
+        // Orders/executions state for lazy loading
+        let executionsOffset = 0;
+        let allExecutions = [];
+        let executionsHasMore = true;
+        let executionsLoading = false;
+        let lastStats = {};
+        let userLoadedMore = false;  // Track if user has loaded more data
+
+        async function fetchOrders(loadMore = false) {
+            if (executionsLoading) return;
+            executionsLoading = true;
+
+            try {
+                // If user has loaded more data and this is an auto-refresh, skip resetting
+                // This preserves their scroll position and loaded data
+                if (!loadMore && userLoadedMore) {
+                    // Just update stats, don't reset data
+                    const resp = await fetch('/api/orders?limit=1&offset=0');
+                    const data = await resp.json();
+                    lastStats = data.stats || {};
+                    // Update stats display without resetting table
+                    const statsContainer = document.querySelector('#orders-container > div:first-child');
+                    if (statsContainer) {
+                        statsContainer.innerHTML = `
+                            <div style="padding: 8px 16px; background: var(--bg-tertiary); border-radius: 6px;">
+                                <span style="color: var(--text-secondary);">Total:</span>
+                                <span style="font-weight: 600;">${lastStats.total_attempts || 0}</span>
+                            </div>
+                            <div style="padding: 8px 16px; background: var(--bg-tertiary); border-radius: 6px;">
+                                <span style="color: var(--text-secondary);">Filled:</span>
+                                <span style="font-weight: 600; color: var(--accent-green);">${lastStats.successful || 0}</span>
+                            </div>
+                            <div style="padding: 8px 16px; background: var(--bg-tertiary); border-radius: 6px;">
+                                <span style="color: var(--text-secondary);">Partial:</span>
+                                <span style="font-weight: 600; color: var(--accent-yellow);">${lastStats.partial || 0}</span>
+                            </div>
+                            <div style="padding: 8px 16px; background: var(--bg-tertiary); border-radius: 6px;">
+                                <span style="color: var(--text-secondary);">Cancelled:</span>
+                                <span style="font-weight: 600; color: var(--accent-blue);">${lastStats.cancelled || 0}</span>
+                            </div>
+                            <div style="padding: 8px 16px; background: var(--bg-tertiary); border-radius: 6px;">
+                                <span style="color: var(--text-secondary);">Failed:</span>
+                                <span style="font-weight: 600; color: var(--accent-red);">${lastStats.failed || 0}</span>
+                            </div>
+                        `;
+                    }
+                    executionsLoading = false;
+                    return;
+                }
+
+                if (!loadMore) {
+                    executionsOffset = 0;
+                    allExecutions = [];
+                    executionsHasMore = true;
+                } else {
+                    userLoadedMore = true;  // User explicitly loaded more
+                }
+
+                const resp = await fetch(`/api/orders?limit=50&offset=${executionsOffset}`);
+                const data = await resp.json();
+
+                const container = document.getElementById('orders-container');
+                const activeOrders = data.active_orders || [];
+                const newExecs = data.recent_executions || [];
+                const stats = data.stats || {};
+
+                // Append new executions
+                if (loadMore) {
+                    allExecutions = [...allExecutions, ...newExecs];
+                } else {
+                    allExecutions = newExecs;
+                }
+                executionsOffset += newExecs.length;
+                executionsHasMore = newExecs.length === 50;  // If we got a full page, there might be more
+                lastStats = stats;
+
+                const recentExecs = allExecutions;
+
+                let html = '';
+
+                // Stats summary
+                html += `
+                    <div style="display: flex; gap: 20px; margin-bottom: 16px; flex-wrap: wrap;">
+                        <div style="padding: 8px 16px; background: var(--bg-tertiary); border-radius: 6px;">
+                            <span style="color: var(--text-secondary);">Total:</span>
+                            <span style="font-weight: 600;">${stats.total_attempts || 0}</span>
+                        </div>
+                        <div style="padding: 8px 16px; background: var(--bg-tertiary); border-radius: 6px;">
+                            <span style="color: var(--text-secondary);">Filled:</span>
+                            <span style="font-weight: 600; color: var(--accent-green);">${stats.successful || 0}</span>
+                        </div>
+                        <div style="padding: 8px 16px; background: var(--bg-tertiary); border-radius: 6px;">
+                            <span style="color: var(--text-secondary);">Partial:</span>
+                            <span style="font-weight: 600; color: var(--accent-yellow);">${stats.partial || 0}</span>
+                        </div>
+                        <div style="padding: 8px 16px; background: var(--bg-tertiary); border-radius: 6px;">
+                            <span style="color: var(--text-secondary);">Cancelled:</span>
+                            <span style="font-weight: 600; color: var(--accent-blue);">${stats.cancelled || 0}</span>
+                        </div>
+                        <div style="padding: 8px 16px; background: var(--bg-tertiary); border-radius: 6px;">
+                            <span style="color: var(--text-secondary);">Failed:</span>
+                            <span style="font-weight: 600; color: var(--accent-red);">${stats.failed || 0}</span>
+                        </div>
+                    </div>
+                `;
+
+                // Active orders (in progress)
+                if (activeOrders.length > 0) {
+                    html += `<h4 style="margin: 16px 0 8px; color: var(--accent-yellow);">Active Orders (Pending Fill)</h4>`;
+                    html += `<div class="table-container"><table>
+                        <thead>
+                            <tr>
+                                <th>Market</th>
+                                <th>Outcome</th>
+                                <th>Price</th>
+                                <th>Size</th>
+                                <th>Status</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${activeOrders.map(o => `
+                                <tr>
+                                    <td>${o.market}</td>
+                                    <td><span style="color: ${o.outcome === 'YES' ? 'var(--accent-green)' : 'var(--accent-red)'}; font-weight: 600;">${o.outcome}</span></td>
+                                    <td>$${o.price.toFixed(3)}</td>
+                                    <td>${o.size}</td>
+                                    <td><span style="color: var(--accent-yellow);">${o.status}</span></td>
+                                    <td>${formatDateTime(o.created_at)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table></div>`;
+                }
+
+                // Recent executions (sorted by time descending - most recent first)
+                if (recentExecs.length > 0) {
+                    html += `<h4 style="margin: 16px 0 8px; color: var(--text-secondary);">Recent Executions</h4>`;
+                    html += `<div id="executions-table-container" class="table-container" style="max-height: 600px; overflow-y: auto;"><table>
+                        <thead style="position: sticky; top: 0; background: var(--bg-secondary); z-index: 1;">
+                            <tr>
+                                <th>Time</th>
+                                <th>Market</th>
+                                <th>Arb %</th>
+                                <th>YES Liq</th>
+                                <th>NO Liq</th>
+                                <th>YES Order</th>
+                                <th>NO Order</th>
+                                <th>Status</th>
+                                <th>Latency</th>
+                                <th>Cost</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${recentExecs.map((e, idx) => {
+                                // Determine display status with more detail
+                                let displayStatus = e.status.toUpperCase();
+                                let statusColor = 'var(--accent-red)';
+
+                                // Check if both sides failed due to FOK liquidity constraints
+                                const yesHasFokError = e.yes_order.error && (e.yes_order.error.includes('FOK') || e.yes_order.error.includes('fully filled'));
+                                const noHasFokError = e.no_order.error && (e.no_order.error.includes('FOK') || e.no_order.error.includes('fully filled'));
+                                const bothFokFailed = yesHasFokError && noHasFokError;
+
+                                if (e.status === 'filled') {
+                                    statusColor = 'var(--accent-green)';
+                                } else if (e.status === 'cancelled') {
+                                    statusColor = 'var(--accent-blue)';
+                                } else if (bothFokFailed) {
+                                    // Both sides failed due to insufficient liquidity (FOK orders couldn't fill)
+                                    displayStatus = 'ILLIQUID';
+                                    statusColor = 'var(--accent-orange, #f59e0b)';
+                                } else if (e.status === 'partial') {
+                                    statusColor = 'var(--accent-yellow)';
+                                    // More descriptive partial statuses
+                                    if (e.yes_order.status === 'submitted' && e.no_order.status === 'submitted') {
+                                        displayStatus = 'TIMEOUT';
+                                        statusColor = 'var(--accent-blue)';
+                                    } else if (e.yes_order.status === 'filled' && e.no_order.status !== 'filled') {
+                                        displayStatus = 'YES ONLY';
+                                    } else if (e.no_order.status === 'filled' && e.yes_order.status !== 'filled') {
+                                        displayStatus = 'NO ONLY';
+                                    }
+                                }
+
+                                // Format arb profit %
+                                const arbPct = e.profit_pct ? `+${(e.profit_pct * 100).toFixed(2)}%` : '-';
+                                // Calculate dollar liquidity (shares × price)
+                                const yesSharesExec = e.yes_liquidity || 0;
+                                const noSharesExec = e.no_liquidity || 0;
+                                const yesPriceExec = e.yes_order?.price || 0;
+                                const noPriceExec = e.no_order?.price || 0;
+                                const yesDollarLiqExec = yesSharesExec * yesPriceExec;
+                                const noDollarLiqExec = noSharesExec * noPriceExec;
+                                // Format with both dollar value and shares
+                                const yesLiq = yesSharesExec > 0 ? `$${yesDollarLiqExec.toFixed(0)} (${yesSharesExec.toFixed(0)}sh)` : (e.market_liquidity ? `$${(e.market_liquidity/2).toLocaleString(undefined, {maximumFractionDigits: 0})}` : '-');
+                                const noLiq = noSharesExec > 0 ? `$${noDollarLiqExec.toFixed(0)} (${noSharesExec.toFixed(0)}sh)` : (e.market_liquidity ? `$${(e.market_liquidity/2).toLocaleString(undefined, {maximumFractionDigits: 0})}` : '-');
+
+                                // Format timing info
+                                const timing = e.timing;
+                                let latencyDisplay = '-';
+                                let timingDetails = '';
+                                const isExpanded = expandedTimingRows.has(idx);
+                                if (timing && timing.deltas) {
+                                    const totalMs = timing.deltas.total_execute_ms || timing.deltas.total_latency_ms;
+                                    if (totalMs) {
+                                        latencyDisplay = `${Math.round(totalMs)}ms`;
+                                    }
+                                    // Build timing breakdown for expandable row
+                                    const deltas = timing.deltas;
+                                    timingDetails = `
+                                        <tr class="timing-details" id="timing-${idx}" style="display: ${isExpanded ? 'table-row' : 'none'}; background: var(--bg-tertiary);">
+                                            <td colspan="10" style="padding: 8px 16px;">
+                                                <div style="display: flex; gap: 24px; flex-wrap: wrap; font-size: 11px;">
+                                                    ${deltas.warmup_ms !== undefined ? `<span>🔥 Warmup: <b>${deltas.warmup_ms}ms</b></span>` : ''}
+                                                    ${deltas.prefetch_ms !== undefined ? `<span>🔍 Prefetch: <b>${deltas.prefetch_ms}ms</b></span>` : ''}
+                                                    ${deltas.sign_ms !== undefined ? `<span>✍️ Sign: <b>${deltas.sign_ms}ms</b></span>` : ''}
+                                                    ${deltas.submit_ms !== undefined ? `<span>📤 Submit: <b>${deltas.submit_ms}ms</b>${deltas.yes_submit_ms !== undefined && deltas.no_submit_ms !== undefined ? ` (Y:${deltas.yes_submit_ms}/N:${deltas.no_submit_ms})` : ''}</span>` : ''}
+                                                    ${deltas.total_execute_ms !== undefined ? `<span>⚡ Total: <b>${Math.round(deltas.total_execute_ms)}ms</b></span>` : ''}
+                                                </div>
+                                            </td>
+                                        </tr>`;
+                                }
+
+                                const yesError = e.yes_order.error ? `<div style="color: var(--accent-red); font-size: 10px; max-width: 200px; word-wrap: break-word;">${e.yes_order.error}</div>` : '';
+                                const noError = e.no_order.error ? `<div style="color: var(--accent-red); font-size: 10px; max-width: 200px; word-wrap: break-word;">${e.no_order.error}</div>` : '';
+                                return `
+                                <tr style="cursor: ${timing ? 'pointer' : 'default'};" onclick="${timing ? `toggleTimingRow(${idx})` : ''}">
+                                    <td>${formatDateTime(e.timestamp)}</td>
+                                    <td>${e.market}</td>
+                                    <td style="color: var(--accent-green); font-weight: 600;">${arbPct}</td>
+                                    <td style="color: var(--accent-green);">${yesLiq}</td>
+                                    <td style="color: var(--accent-red);">${noLiq}</td>
+                                    <td>
+                                        <span style="color: ${e.yes_order.status === 'filled' ? 'var(--accent-green)' : e.yes_order.status === 'submitted' ? 'var(--accent-blue)' : 'var(--accent-red)'};">
+                                            ${e.yes_order.status}
+                                        </span>
+                                        <span style="color: var(--text-secondary); font-size: 11px;"> ${e.yes_order.filled_size || e.yes_order.size}@$${e.yes_order.price.toFixed(3)}</span>
+                                        ${yesError}
+                                    </td>
+                                    <td>
+                                        <span style="color: ${e.no_order.status === 'filled' ? 'var(--accent-green)' : e.no_order.status === 'submitted' ? 'var(--accent-blue)' : 'var(--accent-red)'};">
+                                            ${e.no_order.status}
+                                        </span>
+                                        <span style="color: var(--text-secondary); font-size: 11px;"> ${e.no_order.filled_size || e.no_order.size}@$${e.no_order.price.toFixed(3)}</span>
+                                        ${noError}
+                                    </td>
+                                    <td><span style="color: ${statusColor}; font-weight: 600;">${displayStatus}</span></td>
+                                    <td style="color: var(--accent-blue); font-weight: 500;">${latencyDisplay}${timing ? (isExpanded ? ' ▲' : ' ▼') : ''}</td>
+                                    <td>$${e.total_cost.toFixed(2)}</td>
+                                </tr>
+                                ${timingDetails}
+                            `}).join('')}
+                        </tbody>
+                    </table></div>`;
+
+                    // Add Load More button if there might be more data
+                    if (executionsHasMore) {
+                        html += `<div id="executions-pagination" style="text-align: center; padding: 12px;">
+                            <button onclick="fetchOrders(true)" style="padding: 8px 24px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); cursor: pointer;">
+                                Load More (${allExecutions.length} loaded)
+                            </button>
+                        </div>`;
+                    }
+                }
+
+                if (activeOrders.length === 0 && recentExecs.length === 0) {
+                    html = '<div class="empty-state">No orders yet</div>';
+                }
+
+                // Preserve scroll position of the executions table before updating
+                const oldExecTable = document.getElementById('executions-table-container');
+                let scrollTop = oldExecTable ? oldExecTable.scrollTop : 0;
+
+                container.innerHTML = html;
+
+                // Restore scroll position and add scroll listener for infinite scroll
+                const execTableContainer = document.getElementById('executions-table-container');
+                if (execTableContainer) {
+                    // Restore scroll position
+                    if (scrollTop > 0) {
+                        execTableContainer.scrollTop = scrollTop;
+                    }
+
+                    // Add scroll listener for infinite scroll
+                    execTableContainer.onscroll = function() {
+                        // Load more when scrolled near bottom (within 100px)
+                        const nearBottom = execTableContainer.scrollTop + execTableContainer.clientHeight >= execTableContainer.scrollHeight - 100;
+                        if (executionsHasMore && !executionsLoading && nearBottom) {
+                            fetchOrders(true);
+                        }
+                    };
+                }
+
+                // Log active orders
+                if (activeOrders.length > 0) {
+                    addLogLine('info', `${activeOrders.length} order(s) pending fill...`);
+                }
+            } catch (e) {
+                console.error('Orders fetch error:', e);
+            } finally {
+                executionsLoading = false;
+            }
+        }
+
+        // Redeemed positions history (from database)
+        let redeemedHistoryOffset = 0;
+        let allRedeemedHistory = [];
+
+        async function fetchRedeemedHistory(loadMore = false) {
+            try {
+                if (!loadMore) {
+                    redeemedHistoryOffset = 0;
+                    allRedeemedHistory = [];
+                }
+
+                const resp = await fetch(`/api/closed-positions?limit=20&offset=${redeemedHistoryOffset}`);
+                const data = await resp.json();
+
+                document.getElementById('redeemed-history-count').textContent = `${data.total || 0} closed`;
+
+                if (loadMore) {
+                    allRedeemedHistory = [...allRedeemedHistory, ...data.positions];
+                } else {
+                    allRedeemedHistory = data.positions;
+                }
+                redeemedHistoryOffset += data.count;
+
+                const pagination = document.getElementById('redeemed-history-pagination');
+                pagination.style.display = data.has_more ? 'block' : 'none';
+
+                if (allRedeemedHistory.length === 0) {
+                    document.getElementById('redeemed-history-container').innerHTML = `
+                        <div class="empty-state">No closed positions yet</div>
+                    `;
+                } else {
+                    document.getElementById('redeemed-history-container').innerHTML = renderClosedPositionsTable(allRedeemedHistory);
+                }
+            } catch (e) {
+                console.error('Redeemed history fetch error:', e);
+            }
+        }
+
+        function renderClosedPositionsTable(positions) {
+            // Group positions by market and approximate timestamp (within 1 hour)
+            const groups = {};
+            positions.forEach(p => {
+                // Create group key from market + date (hour precision for grouping trades)
+                const date = new Date(p.timestamp);
+                const hourKey = `${date.toISOString().slice(0, 13)}`; // YYYY-MM-DDTHH
+                const groupKey = `${p.market}|${hourKey}`;
+
+                if (!groups[groupKey]) {
+                    groups[groupKey] = {
+                        market: p.market,
+                        timestamp: p.timestamp,
+                        positions: [],
+                        statuses: new Set(),
+                        totalCost: 0,
+                        totalValue: 0,
+                        totalPnl: 0
+                    };
+                }
+                groups[groupKey].positions.push(p);
+                groups[groupKey].statuses.add(p.status || 'CLOSED');
+                groups[groupKey].totalCost += p.cost_basis;
+                groups[groupKey].totalValue += p.realized_value;
+                groups[groupKey].totalPnl += p.realized_pnl;
+                // Use earliest timestamp for the group
+                if (new Date(p.timestamp) < new Date(groups[groupKey].timestamp)) {
+                    groups[groupKey].timestamp = p.timestamp;
+                }
+            });
+
+            // Sort groups by timestamp descending
+            const sortedGroups = Object.values(groups).sort((a, b) =>
+                new Date(b.timestamp) - new Date(a.timestamp)
+            );
+
+            // Render grouped table
+            let html = `<table>
+                <thead>
+                    <tr>
+                        <th style="width: 30px;"></th>
+                        <th>Date</th>
+                        <th>Market</th>
+                        <th>Sides</th>
+                        <th>Status</th>
+                        <th>Total Cost</th>
+                        <th>Total Value</th>
+                        <th>Net P&L</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+
+            sortedGroups.forEach((group, idx) => {
+                const pnlColor = group.totalPnl >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+                const pnlSign = group.totalPnl >= 0 ? '+' : '';
+                const hasMultiple = group.positions.length > 1;
+                const sidesLabel = group.positions.map(p => p.outcome).join(' + ');
+                const groupId = `group-${idx}`;
+
+                // Format status with color
+                const statusList = Array.from(group.statuses);
+                const statusLabel = statusList.join(', ');
+                const statusColor = statusList.includes('SOLD') ? 'var(--accent-yellow)' :
+                                   statusList.some(s => s === 'WON' || s === 'REDEEMED') ? 'var(--accent-green)' :
+                                   statusList.includes('LOST') ? 'var(--accent-red)' : 'var(--text-secondary)';
+
+                // Summary row
+                html += `
+                    <tr class="group-header" style="cursor: ${hasMultiple ? 'pointer' : 'default'};" onclick="${hasMultiple ? `toggleGroup('${groupId}')` : ''}">
+                        <td style="text-align: center; color: var(--text-secondary);">
+                            ${hasMultiple ? `<span id="${groupId}-icon">▶</span>` : ''}
+                        </td>
+                        <td>${formatDateTime(group.timestamp)}</td>
+                        <td title="${group.market}">${(group.market || '-').slice(0, 40)}${(group.market || '').length > 40 ? '...' : ''}</td>
+                        <td>${sidesLabel}</td>
+                        <td style="color: ${statusColor};">${statusLabel}</td>
+                        <td>$${group.totalCost.toFixed(2)}</td>
+                        <td>$${group.totalValue.toFixed(2)}</td>
+                        <td style="color: ${pnlColor}; font-weight: 600;">${pnlSign}$${group.totalPnl.toFixed(2)}</td>
+                    </tr>`;
+
+                // Detail rows (hidden by default)
+                if (hasMultiple) {
+                    group.positions.forEach(p => {
+                        const itemPnlColor = p.realized_pnl >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+                        const itemPnlSign = p.realized_pnl >= 0 ? '+' : '';
+                        const itemStatus = p.status || 'CLOSED';
+                        const itemStatusColor = itemStatus === 'SOLD' ? 'var(--accent-yellow)' :
+                                               itemStatus === 'WON' || itemStatus === 'REDEEMED' ? 'var(--accent-green)' :
+                                               itemStatus === 'LOST' ? 'var(--accent-red)' : 'var(--text-secondary)';
+
+                        html += `
+                        <tr class="${groupId}-detail" style="display: none; background: rgba(255,255,255,0.02);">
+                            <td></td>
+                            <td style="padding-left: 20px; color: var(--text-secondary);">└</td>
+                            <td>
+                                <span style="color: ${p.outcome === 'Yes' ? 'var(--accent-green)' : 'var(--accent-red)'}; font-weight: 600;">
+                                    ${p.outcome}
+                                </span>
+                                <span style="color: var(--text-secondary); margin-left: 8px;">${p.size.toFixed(0)} @ $${p.avg_price.toFixed(3)}</span>
+                            </td>
+                            <td style="color: ${itemStatusColor};">${itemStatus}</td>
+                            <td>$${p.cost_basis.toFixed(2)}</td>
+                            <td>$${p.realized_value.toFixed(2)}</td>
+                            <td style="color: ${itemPnlColor};">${itemPnlSign}$${p.realized_pnl.toFixed(2)}</td>
+                        </tr>`;
+                    });
+                }
+            });
+
+            html += `</tbody></table>`;
+            return html;
+        }
+
+        function toggleGroup(groupId) {
+            const details = document.querySelectorAll(`.${groupId}-detail`);
+            const icon = document.getElementById(`${groupId}-icon`);
+            const isHidden = details[0]?.style.display === 'none';
+
+            details.forEach(row => {
+                row.style.display = isHidden ? 'table-row' : 'none';
+            });
+            if (icon) {
+                icon.textContent = isHidden ? '▼' : '▶';
+            }
+        }
+
+        function toggleTimingRow(idx) {
+            const row = document.getElementById(`timing-${idx}`);
+            if (row) {
+                const isHidden = row.style.display === 'none';
+                row.style.display = isHidden ? 'table-row' : 'none';
+                // Track state for re-renders
+                if (isHidden) {
+                    expandedTimingRows.add(idx);
+                } else {
+                    expandedTimingRows.delete(idx);
+                }
+            }
+        }
+
+        // Event listeners for load more buttons
+        document.getElementById('alerts-load-more').addEventListener('click', () => fetchAlerts(true));
+        document.getElementById('trades-load-more').addEventListener('click', () => fetchTrades(true));
+        document.getElementById('redeemed-history-load-more').addEventListener('click', () => fetchRedeemedHistory(true));
+        document.getElementById('near-miss-load-more').addEventListener('click', () => fetchNearMissAlerts(true));
+
+        // Chart instances
+        let priceUpdatesChart = null;
+        let marketsChart = null;
+        let alertsChart = null;
+        let nearMissChart = null;
+        let dailyChart = null;
+        let balanceChart = null;
+
+        // Chart.js default configuration for dark theme
+        Chart.defaults.color = '#8b949e';
+        Chart.defaults.borderColor = '#30363d';
+
+        // Helper to format hour labels in PST
+        function formatHourLabel(h) {
+            const isoString = h.replace(' ', 'T') + ':00Z';
+            const date = new Date(isoString);
+            if (isNaN(date.getTime())) {
+                const parts = h.split(' ');
+                return parts[1] || h;
+            }
+            return date.toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                hour12: true,
+                timeZone: 'America/Los_Angeles'
+            });
+        }
+
+        // Helper to format minute labels in PST
+        function formatMinuteLabel(m) {
+            // m is "YYYY-MM-DD HH:MM"
+            const isoString = m.replace(' ', 'T') + ':00Z';
+            const date = new Date(isoString);
+            if (isNaN(date.getTime())) {
+                const parts = m.split(' ');
+                return parts[1] || m;
+            }
+            return date.toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true,
+                timeZone: 'America/Los_Angeles'
+            });
+        }
+
+        async function fetchPriceUpdatesChart() {
+            try {
+                const resp = await fetch('/api/charts/price-updates-minute?minutes=60');
+                const data = await resp.json();
+
+                const priceCanvas = document.getElementById('price-updates-chart');
+                const priceEmpty = document.getElementById('price-updates-chart-empty');
+
+                if (data.count === 0) {
+                    priceCanvas.style.display = 'none';
+                    priceEmpty.style.display = 'flex';
+                    return;
+                }
+
+                priceCanvas.style.display = 'block';
+                priceEmpty.style.display = 'none';
+
+                // Only show every 5th label to avoid crowding
+                const labels = data.minutes.map((m, i) => {
+                    if (i % 10 === 0 || i === data.minutes.length - 1) {
+                        return formatMinuteLabel(m);
+                    }
+                    return '';
+                });
+
+                const priceData = {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Price Updates/min',
+                        data: data.price_updates,
+                        borderColor: '#58a6ff',
+                        backgroundColor: 'rgba(88, 166, 255, 0.2)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 1,
+                    }]
+                };
+
+                const priceConfig = {
+                    type: 'line',
+                    data: priceData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: '#21262d',
+                                borderColor: '#30363d',
+                                borderWidth: 1,
+                                callbacks: {
+                                    title: (items) => {
+                                        const idx = items[0].dataIndex;
+                                        return formatMinuteLabel(data.minutes[idx]);
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { grid: { display: false } },
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: 'rgba(48, 54, 61, 0.5)' },
+                                ticks: {
+                                    callback: (v) => v >= 1000 ? (v/1000).toFixed(0) + 'k' : v
+                                }
+                            }
+                        }
+                    }
+                };
+
+                if (priceUpdatesChart) {
+                    priceUpdatesChart.data = priceData;
+                    priceUpdatesChart.update('none');
+                } else {
+                    priceUpdatesChart = new Chart(priceCanvas, priceConfig);
+                }
+            } catch (e) {
+                console.error('Price updates chart fetch error:', e);
+            }
+        }
+
+        async function fetchMarketsChart() {
+            try {
+                const resp = await fetch('/api/charts/hourly?hours=24');
+                const data = await resp.json();
+
+                const marketsCanvas = document.getElementById('markets-chart');
+                const marketsEmpty = document.getElementById('markets-chart-empty');
+
+                if (data.count === 0) {
+                    marketsCanvas.style.display = 'none';
+                    marketsEmpty.style.display = 'flex';
+                    return;
+                }
+
+                marketsCanvas.style.display = 'block';
+                marketsEmpty.style.display = 'none';
+
+                const labels = data.hours.map(formatHourLabel);
+
+                const marketsData = {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Markets',
+                        data: data.markets,
+                        borderColor: '#3fb950',
+                        backgroundColor: 'rgba(63, 185, 80, 0.2)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 2,
+                    }]
+                };
+
+                const marketsConfig = {
+                    type: 'line',
+                    data: marketsData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: '#21262d',
+                                borderColor: '#30363d',
+                                borderWidth: 1,
+                            }
+                        },
+                        scales: {
+                            x: { grid: { display: false } },
+                            y: {
+                                grid: { color: 'rgba(48, 54, 61, 0.5)' },
+                            }
+                        }
+                    }
+                };
+
+                if (marketsChart) {
+                    marketsChart.data = marketsData;
+                    marketsChart.update('none');
+                } else {
+                    marketsChart = new Chart(marketsCanvas, marketsConfig);
+                }
+            } catch (e) {
+                console.error('Markets chart fetch error:', e);
+            }
+        }
+
+        async function fetchAlertsChart() {
+            try {
+                const resp = await fetch('/api/charts/daily-alerts?days=7');
+                const data = await resp.json();
+
+                const canvas = document.getElementById('alerts-chart');
+                const emptyMsg = document.getElementById('alerts-chart-empty');
+
+                if (data.count === 0) {
+                    canvas.style.display = 'none';
+                    emptyMsg.style.display = 'flex';
+                    return;
+                }
+
+                canvas.style.display = 'block';
+                emptyMsg.style.display = 'none';
+
+                // Format dates for display (MM/DD)
+                const labels = data.dates.map(d => {
+                    const parts = d.split('-');
+                    return `${parts[1]}/${parts[2]}`;
+                });
+
+                const chartData = {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Alerts',
+                        data: data.counts,
+                        backgroundColor: '#3fb950',
+                        borderRadius: 4,
+                    }]
+                };
+
+                const config = {
+                    type: 'bar',
+                    data: chartData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: '#21262d',
+                                borderColor: '#30363d',
+                                borderWidth: 1,
+                            }
+                        },
+                        scales: {
+                            x: { grid: { display: false } },
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: 'rgba(48, 54, 61, 0.5)' },
+                                ticks: { stepSize: 1 }
+                            }
+                        }
+                    }
+                };
+
+                if (alertsChart) {
+                    alertsChart.data = chartData;
+                    alertsChart.update('none');
+                } else {
+                    alertsChart = new Chart(canvas, config);
+                }
+            } catch (e) {
+                console.error('Alerts chart fetch error:', e);
+            }
+        }
+
+        async function fetchNearMissChart() {
+            try {
+                const resp = await fetch('/api/charts/daily-near-miss?days=7');
+                const data = await resp.json();
+
+                const canvas = document.getElementById('near-miss-chart');
+                const emptyMsg = document.getElementById('near-miss-chart-empty');
+
+                if (data.count === 0) {
+                    canvas.style.display = 'none';
+                    emptyMsg.style.display = 'flex';
+                    return;
+                }
+
+                canvas.style.display = 'block';
+                emptyMsg.style.display = 'none';
+
+                // Format dates for display (MM/DD)
+                const labels = data.dates.map(d => {
+                    const parts = d.split('-');
+                    return `${parts[1]}/${parts[2]}`;
+                });
+
+                const chartData = {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Near-Miss',
+                        data: data.counts,
+                        backgroundColor: '#d29922',
+                        borderRadius: 4,
+                    }]
+                };
+
+                const config = {
+                    type: 'bar',
+                    data: chartData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: '#21262d',
+                                borderColor: '#30363d',
+                                borderWidth: 1,
+                            }
+                        },
+                        scales: {
+                            x: { grid: { display: false } },
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: 'rgba(48, 54, 61, 0.5)' },
+                                ticks: { stepSize: 1 }
+                            }
+                        }
+                    }
+                };
+
+                if (nearMissChart) {
+                    nearMissChart.data = chartData;
+                    nearMissChart.update('none');
+                } else {
+                    nearMissChart = new Chart(canvas, config);
+                }
+            } catch (e) {
+                console.error('Near-miss chart fetch error:', e);
+            }
+        }
+
+        async function fetchDailyChart() {
+            try {
+                const resp = await fetch('/api/charts/daily-executions?days=30');
+                const data = await resp.json();
+
+                const canvas = document.getElementById('daily-chart');
+                const emptyMsg = document.getElementById('daily-chart-empty');
+
+                if (data.count === 0) {
+                    canvas.style.display = 'none';
+                    emptyMsg.style.display = 'flex';
+                    return;
+                }
+
+                canvas.style.display = 'block';
+                emptyMsg.style.display = 'none';
+
+                // Format dates for display (MM/DD)
+                const labels = data.dates.map(d => {
+                    const parts = d.split('-');
+                    return `${parts[1]}/${parts[2]}`;
+                });
+
+                const chartData = {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Filled',
+                            data: data.filled,
+                            backgroundColor: '#3fb950',
+                            borderRadius: 4,
+                        },
+                        {
+                            label: 'Partial',
+                            data: data.partial,
+                            backgroundColor: '#d29922',
+                            borderRadius: 4,
+                        },
+                        {
+                            label: 'Failed',
+                            data: data.failed,
+                            backgroundColor: '#f85149',
+                            borderRadius: 4,
+                        }
+                    ]
+                };
+
+                const config = {
+                    type: 'bar',
+                    data: chartData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    usePointStyle: true,
+                                    padding: 20,
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: '#21262d',
+                                borderColor: '#30363d',
+                                borderWidth: 1,
+                            }
+                        },
+                        scales: {
+                            x: {
+                                stacked: true,
+                                grid: {
+                                    display: false,
+                                }
+                            },
+                            y: {
+                                stacked: true,
+                                grid: {
+                                    color: 'rgba(48, 54, 61, 0.5)',
+                                },
+                                ticks: {
+                                    stepSize: 1,
+                                }
+                            }
+                        }
+                    },
+                };
+
+                if (dailyChart) {
+                    dailyChart.data = chartData;
+                    dailyChart.update('none');
+                } else {
+                    dailyChart = new Chart(canvas, config);
+                }
+            } catch (e) {
+                console.error('Daily chart fetch error:', e);
+            }
+        }
+
+        async function fetchBalanceChart() {
+            try {
+                const resp = await fetch('/api/charts/daily-balance?days=30');
+                const data = await resp.json();
+
+                const canvas = document.getElementById('balance-chart');
+                const emptyMsg = document.getElementById('balance-chart-empty');
+
+                if (data.count === 0) {
+                    canvas.style.display = 'none';
+                    emptyMsg.style.display = 'flex';
+                    return;
+                }
+
+                canvas.style.display = 'block';
+                emptyMsg.style.display = 'none';
+
+                // Format dates for display (MM/DD)
+                const labels = data.dates.map(d => {
+                    const parts = d.split('-');
+                    return `${parts[1]}/${parts[2]}`;
+                });
+
+                const chartData = {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Total (Est.)',
+                            data: data.total,
+                            borderColor: '#58a6ff',
+                            backgroundColor: 'rgba(88, 166, 255, 0.1)',
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 3,
+                            order: 1,
+                        },
+                        {
+                            label: 'USDC (On-chain)',
+                            data: data.usdc,
+                            borderColor: '#3fb950',
+                            backgroundColor: 'transparent',
+                            borderDash: [5, 5],
+                            tension: 0.3,
+                            pointRadius: 2,
+                            order: 2,
+                        },
+                        {
+                            label: 'Positions (Est.)',
+                            data: data.positions_value,
+                            borderColor: '#a371f7',
+                            backgroundColor: 'transparent',
+                            borderDash: [5, 5],
+                            tension: 0.3,
+                            pointRadius: 2,
+                            order: 3,
+                        }
+                    ]
+                };
+
+                const config = {
+                    type: 'line',
+                    data: chartData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    usePointStyle: true,
+                                    padding: 20,
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: '#21262d',
+                                borderColor: '#30363d',
+                                borderWidth: 1,
+                                callbacks: {
+                                    label: function(context) {
+                                        return `${context.dataset.label}: $${context.parsed.y.toFixed(2)}`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: { display: false }
+                            },
+                            y: {
+                                grid: { color: 'rgba(48, 54, 61, 0.5)' },
+                                ticks: {
+                                    callback: (v) => '$' + v.toFixed(0)
+                                }
+                            }
+                        }
+                    }
+                };
+
+                if (balanceChart) {
+                    balanceChart.data = chartData;
+                    balanceChart.update('none');
+                } else {
+                    balanceChart = new Chart(canvas, config);
+                }
+            } catch (e) {
+                console.error('Balance chart fetch error:', e);
+            }
+        }
+
+        // Initial load
+        addLogLine('info', 'Dashboard initialized');
+        fetchStatus();
+        fetchBalance();
+        fetchPnL();
+        fetchAlerts();
+        fetchNearMissAlerts();
+        fetchTrades();
+        fetchOrders();
+        fetchPositions();
+        fetchRedeemedHistory();
+        fetchPriceUpdatesChart();
+        fetchMarketsChart();
+        fetchAlertsChart();
+        fetchNearMissChart();
+        fetchDailyChart();
+        fetchBalanceChart();
+
+        // Refresh intervals
+        setInterval(fetchStatus, 5000);      // Status every 5s
+        setInterval(fetchBalance, 30000);    // Balance every 30s
+        setInterval(fetchPnL, 60000);        // PnL every 60s
+        setInterval(() => fetchAlerts(false), 5000);      // Alerts every 5s
+        setInterval(() => fetchNearMissAlerts(false), 10000);  // Near-miss every 10s
+        setInterval(() => fetchTrades(false), 30000);     // Trades every 30s
+        setInterval(fetchOrders, 2000);      // Orders every 2s (to catch pending fills)
+        setInterval(fetchPositions, 30000);  // Positions every 30s
+        setInterval(() => fetchRedeemedHistory(false), 60000);  // Redeemed history every 60s
+        setInterval(fetchPriceUpdatesChart, 5000);  // Price updates every 5s (minute-level)
+        setInterval(fetchMarketsChart, 60000);  // Markets chart every minute (hourly data)
+        setInterval(fetchAlertsChart, 30000);  // Alerts chart every 30s
+        setInterval(fetchNearMissChart, 30000);  // Near-miss chart every 30s
+        setInterval(fetchDailyChart, 60000);  // Daily chart every minute
+        setInterval(fetchBalanceChart, 60000);  // Balance chart every minute
+
+        addLogLine('info', 'Live updates enabled');
+    </script>
+</body>
+</html>
