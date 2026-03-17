@@ -16,7 +16,10 @@ import sys
 from datetime import datetime
 
 import aiohttp
+from dotenv import load_dotenv
 
+# Load .env file
+load_dotenv()
 
 # Test endpoints
 GAMMA_API = "https://gamma-api.polymarket.com"

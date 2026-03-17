@@ -26,6 +26,10 @@ from karb.executor.signer import OrderSide, OrderSigner
 from karb.notifications.slack import get_notifier
 from karb.tracking.trades import Trade, TradeLog
 from karb.utils.logging import get_logger
+from dotenv import load_dotenv
+
+# Load .env file
+load_dotenv()
 
 log = get_logger(__name__)
 

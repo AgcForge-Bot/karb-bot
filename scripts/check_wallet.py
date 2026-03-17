@@ -4,7 +4,12 @@
 import os
 import sys
 from web3 import Web3
+from dotenv import load_dotenv
 
+# Load .env file
+load_dotenv()
+
+# Polygon mainnet
 RPC_URL = "https://polygon-rpc.com"
 USDC_E = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174"
 CTF_EXCHANGE = "0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E"

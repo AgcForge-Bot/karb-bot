@@ -11,6 +11,10 @@ from rich.table import Table
 from karb import __version__
 from karb.config import get_settings, reload_settings
 from karb.utils.logging import setup_logging
+from dotenv import load_dotenv
+
+# Load .env file
+load_dotenv()
 
 console = Console()
 
