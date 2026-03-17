@@ -1,28 +1,69 @@
 # version: "3.8"
 
 services:
-  karb-bot:
+  karb-poly-bot:
     build: .
     container_name: karb-poly-bot
     restart: unless-stopped
     command: ["run", "--live", "--realtime"]
-    env_file:
-      - .env
+    environment:
+      PRIVATE_KEY: ${PRIVATE_KEY:-0x12345678890}
+      WALLET_ADDRESS: ${WALLET_ADDRESS:-0x12345678890}
+      POLYGON_RPC_URL: ${POLYGON_RPC_URL:-https://polygon-rpc.com}
+      CHAIN_ID: ${CHAIN_ID:-137}
+      MIN_PROFIT_THRESHOLD: ${MIN_PROFIT_THRESHOLD:-0.005}
+      MAX_POSITION_SIZE: ${MAX_POSITION_SIZE:-0.01}
+      POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-60}
+      MIN_LIQUIDITY_USD: ${MIN_LIQUIDITY_USD:-10000}
+      CLOB_BASE_URL: ${CLOB_BASE_URL:-https://clob.polygon.karb.network}
+      GAMMA_BASE_URL: ${GAMMA_BASE_URL:-https://gamma.polygon.karb.network}
+      POLY_API_KEY: ${POLY_API_KEY:-0x12345678890}
+      POLY_API_SECRET: ${POLY_API_SECRET:-0x12345678890}
+      POLY_API_PASSPHRASE: ${POLY_API_PASSPHRASE:-0x12345678890}
+      SOCKS5_PROXY_HOST: ${SOCKS5_PROXY_HOST:-localhost}
+      SOCKS5_PROXY_PORT: ${SOCKS5_PROXY_PORT:-1080}
+      SOCKS5_PROXY_USER: ${SOCKS5_PROXY_USER:-user}
+      SOCKS5_PROXY_PASS: ${SOCKS5_PROXY_PASS:-password}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-1234567890:1234567890}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-1234567890}
+      DASHBOARD_USERNAME: ${DASHBOARD_USERNAME:-admin}
+      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD:-admin}
+      DRY_RUN: ${DRY_RUN:-false}
     volumes:
-      - karb-data:/root/.karb
+      - karb-poly-data:/root/.karb
 
-  karb-dashboard:
+  karb-poly-dashboard:
     build: .
     container_name: karb-poly-dashboard
     restart: unless-stopped
     command: ["dashboard", "--host", "0.0.0.0", "--port", "8080"]
-    env_file:
-      - .env
+    environment:
+      PRIVATE_KEY: ${PRIVATE_KEY:-0x12345678890}
+      WALLET_ADDRESS: ${WALLET_ADDRESS:-0x12345678890}
+      POLYGON_RPC_URL: ${POLYGON_RPC_URL:-https://polygon-rpc.com}
+      CHAIN_ID: ${CHAIN_ID:-137}
+      MIN_PROFIT_THRESHOLD: ${MIN_PROFIT_THRESHOLD:-0.005}
+      MAX_POSITION_SIZE: ${MAX_POSITION_SIZE:-0.01}
+      POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-60}
+      MIN_LIQUIDITY_USD: ${MIN_LIQUIDITY_USD:-10000}
+      CLOB_BASE_URL: ${CLOB_BASE_URL:-https://clob.polygon.karb.network}
+      GAMMA_BASE_URL: ${GAMMA_BASE_URL:-https://gamma.polygon.karb.network}
+      POLY_API_KEY: ${POLY_API_KEY:-0x12345678890}
+      POLY_API_SECRET: ${POLY_API_SECRET:-0x12345678890}
+      POLY_API_PASSPHRASE: ${POLY_API_PASSPHRASE:-0x12345678890}
+      SOCKS5_PROXY_HOST: ${SOCKS5_PROXY_HOST:-localhost}
+      SOCKS5_PROXY_PORT: ${SOCKS5_PROXY_PORT:-1080}
+      SOCKS5_PROXY_USER: ${SOCKS5_PROXY_USER:-user}
+      SOCKS5_PROXY_PASS: ${SOCKS5_PROXY_PASS:-password}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-1234567890:1234567890}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-1234567890}
+      DASHBOARD_USERNAME: ${DASHBOARD_USERNAME:-admin}
+      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD:-admin}
     ports:
       - "127.0.0.1:8082:8080"
     volumes:
-      - karb-data:/root/.karb
+      - karb-poly-data:/root/.karb
 
 volumes:
-  karb-data:
-    name: karb-data
+  karb-poly-data:
+    name: karb-poly-data
