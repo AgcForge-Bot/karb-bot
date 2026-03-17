@@ -83,7 +83,21 @@ docker-compose down
 ```
 
 The database and configurations will be saved in a Docker volume `karb-data` to ensure persistence between restarts.
-By default, the dashboard will be available at `http://localhost:8080`.
+By default, the dashboard will be available at `http://localhost:8082`.
+
+### Nginx Reverse Proxy Setup
+
+A sample Nginx configuration file is provided in `nginx/karb-dashboard.conf` to expose the dashboard via the domain `karb-app.agcforge.com`.
+
+To use it:
+
+1. Copy the file to your Nginx sites-available directory:
+   `sudo cp nginx/karb-dashboard.conf /etc/nginx/sites-available/karb-dashboard.conf`
+2. Enable the site:
+   `sudo ln -s /etc/nginx/sites-available/karb-dashboard.conf /etc/nginx/sites-enabled/`
+3. Reload Nginx:
+   `sudo systemctl reload nginx`
+4. Make sure your domain's DNS is pointed to the server's IP.
 
 ## Configuration
 

@@ -1,9 +1,9 @@
-version: "3.8"
+# version: "3.8"
 
 services:
   karb-bot:
     build: .
-    container_name: karb-bot
+    container_name: karb-poly-bot
     restart: unless-stopped
     command: ["run", "--live", "--realtime"]
     env_file:
@@ -13,13 +13,13 @@ services:
 
   karb-dashboard:
     build: .
-    container_name: karb-dashboard
+    container_name: karb-poly-dashboard
     restart: unless-stopped
     command: ["dashboard", "--host", "0.0.0.0", "--port", "8080"]
     env_file:
       - .env
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8082:8080"
     volumes:
       - karb-data:/root/.karb
 

@@ -65,3 +65,4 @@ htmlcov/
 private_key*
 .backup/
 tools
+nginx
